@@ -1,73 +1,118 @@
-# MSP432 Software Fundamentals
+# MSP432P401R Reference 💡🧑‍💻
 
-A collection of MSP432P401R software examples intended to serve as a reference for common embedded systems peripherals and functionality.
+A beginner-friendly reference repository for learning the Texas Instruments MSP432P401R LaunchPad using C and Code Composer Studio.
 
-Examples are implemented using register-level programming and focus on readability, code organization, and practical usage.
+This repository contains examples for common MSP432 peripherals such as GPIO, timers, UART, ADC, PWM, interrupts, LCDs, I2C, and SPI.
 
-## Hardware
+![C](https://img.shields.io/badge/Language-C-blue) ![Code Composer Studio](https://img.shields.io/badge/IDE-Code%20Composer%20Studio-blue) ![MSP432P401R](https://img.shields.io/badge/Board-MSP432P401R-green) ![MIT License](https://img.shields.io/badge/License-MIT-orange)
 
-* MSP432P401R LaunchPad
-* Code Composer Studio (CCS) 12.8.1
+---
+
+## Repository Goals
+
+This repository is designed to help you:
+
+* Understand how MSP432P401R peripheral examples are structured
+* Copy example code into Code Composer Studio and run it
+* Learn what each important register/configuration step does
+* Connect the C code with the README explanations
+* Build a foundation for larger embedded systems projects
+
+Each example includes beginner-focused C code and a README file that explains what the code does, why it works, and what to expect when running it.
+
+---
+
+## Hardware and Software Used
+
+**Microcontroller Board:**
+MSP432P401R LaunchPad
+
+**Programming Language:**
+C
+
+**IDE:**
+Code Composer Studio (CCS) 12.8.1
+
+**Programming Style:**
+Direct register-level programming (Bare Metal)
+
+---
 
 ## Repository Contents
 
-### GPIO
+| Folder | Description |
+| ------ | ----------- |
+| `00_Getting_Started` | Code Composer Studio setup, project creation, and basic MSP432P401R notes |
+| `01_GPIO` | Digital input/output examples such as blinking LEDs and reading buttons |
+| `02_SysTick_Timer` | Basic delay and timing examples using the SysTick timer |
+| `03_Timer_A` | Timer_A examples using interrupts and periodic timing |
+| `04_Port_Interrupts` | GPIO interrupt examples using buttons and external signals |
+| `05_UART` | Serial communication examples |
+| `06_ADC` | Analog-to-digital conversion examples |
+| `07_PWM` | Pulse-width modulation examples for LEDs, servos, and signals |
+| `08_LCD` | LCD examples for displaying text and values |
+| `09_I2C` | I2C communication examples |
+| `10_SPI` | SPI communication examples |
+| `11_Wireless_Communication` | Wireless communication examples using external modules such as the ESP8266 |
+| `12_Cryptography` | Basic embedded cryptography examples such as AES |
+| `docs` | Additional notes, references, and repository documentation |
+| `images` | Pinouts, wiring diagrams, and example images |
 
-* Blink LED
-* Onboard LEDs
-* Button Polling
-* Button LED Control
+---
 
-### Port Interrupts
+## How to Use This Repository
 
-* Button Interrupts
-* Pull-Up Interrupts
-* Pull-Down Interrupts
+1. Open an example project.
+2. Read the example README.
+3. Open `main.c` in Code Composer Studio.
+4. When a comment in the code points to a README section, use that section for a more thorough explanation on that piece of code.
 
-### SysTick Timer
+Example:
 
-* Simple Delay
-* Timer Interrupts
-* Stopwatch
+```c
+/* README 3.1 - Stop the watchdog timer */
+WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;
+```
 
-### TimerA
+---
 
-* Basic Timer
-* Multiple Timer Instances
-* Timer Interrupts
+## Documentation Style
 
-### PWM
+Each example follows the same documentation structure:
 
-* LED Dimming
-* Multiple PWM Outputs
-* SG90 Servo Control
-* Sine Wave Generation
+1. Overview
+2. Hardware Used
+3. Pinout / Wiring
+4. Code Walkthrough
+5. Expected Result
+6. Register Summary
+7. Common Problems
+8. Next Example
 
-### ADC
+---
 
-* Polling Examples
-* Interrupt Examples
+## Important Note
 
-### UART
+These examples intentionally favor readability over optimization.
 
-* UART Echo
-* External Serial Communication
-* UART Interrupts
+Some examples may use simple delays, direct register writes, or beginner-friendly structure instead of more advanced embedded design patterns. This is intentional. The purpose of this repository is to explain what the code is doing, why it works, and how it communicates with the MSP432P401R before moving into more complex implementations.
 
-### LCD
+---
 
-* LCD Output
-* LCD with Interrupts
+## Additional References
 
-## Repository Standards
+Texas Instruments provides official documentation for the MSP432P401R, including the Technical Reference Manual and device datasheet.
 
-Each example is intended to:
+These documents are useful for deeper study, but they are not required to understand the examples in this repository.
 
-* Compile without warnings
-* Include clear project documentation
-* Document hardware pin usage
-* Serve as a reusable software reference
+---
 
-## Disclaimer
+## Acknowledgments
 
-These examples are provided as reference material. They are intended to demonstrate peripheral configuration and basic firmware structure. Users are encouraged to consult the MSP432 Technical Reference Manual and device datasheet for complete peripheral documentation and device-specific behavior.
+This repository was inspired by a fellow UTEP (The University of Texas at El Paso) classmate and friend, **Jesus Minjares**, who created one of the first MSP432 reference repositories that I came across during college.
+
+His work demonstrated the value of sharing embedded systems examples with the community and inspired me to create my own MSP432P401R reference repository.
+
+Thank you for the inspiration, Jesus!
+
+* [MSP432-Example-Codes](https://github.com/jminjares4/MSP432-Example-Codes)
