@@ -1,4 +1,4 @@
-# MSP432P401R Reference 💡🧑‍💻
+# MSP432P401R Reference 💾
 
 A beginner-friendly reference repository for learning the Texas Instruments MSP432P401R LaunchPad using C and Code Composer Studio.
 
