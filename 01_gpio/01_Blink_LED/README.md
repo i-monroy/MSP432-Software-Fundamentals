@@ -2,7 +2,7 @@
 
 This example blinks the onboard red LED connected to `P1.0` on the MSP432P401R LaunchPad.
 
-This is the first GPIO example because it shows the basic structure used in embedded codes:
+This is the first GPIO example because it demonstrates a basic structure used in embedded programs:
 
 1. Stop the watchdog timer.
 2. Configure a pin for GPIO.
@@ -69,7 +69,7 @@ Pins on the MSP432P401R can have multiple functions. A pin can be used as GPIO, 
 
 The `SEL0` and `SEL1` registers select the function of the pin.
 
-For this example, `P1.0` must be used as a normal GPIO pin, so both selection bits for `P1.0` are cleared, `&= ~`. Other examples show a different configuration for `SEL0` and `SEL1`.
+For this example, `P1.0` must operate as a GPIO pin, so its bits in both selection registers are cleared using `&= ~BIT0`. Other examples show a different configuration for `SEL0` and `SEL1`.
 
 ---
 
@@ -88,7 +88,7 @@ For GPIO direction:
 | `0`       | Input         |
 | `1`       | Output        |
 
-Since the red LED is connected to `P1.0`, the program sets, `|=`, bit 0 in `P1DIR` to configure `P1.0` as an output.
+Since the red LED is connected to `P1.0`, the program sets bit 0 in `P1DIR` using `|= BIT0`, configuring `P1.0` as an output.
 
 This allows the MSP432P401R to drive the LED pin high or low.
 
@@ -102,7 +102,7 @@ P1->OUT &= ~BIT0;
 
 The `OUT` register controls the output value of a GPIO pin when that pin is configured as an output.
 
-This line clears, `&= ~`, bit 0 in `P1OUT`, which turns the red LED off before the main loop begins.
+This line clears bit 0 in `P1OUT` using `&= ~BIT0`, turning the red LED off before the main loop begins.
 
 Starting with a known output state is good practice because it makes the program behavior predictable.
 
@@ -120,11 +120,11 @@ This macro defines the number of CPU cycles used for the delay.
 __delay_cycles(LED_BLINK_DELAY_CYCLES);
 ```
 
-The `__delay_cycles()` function pauses the program for the specified number of CPU cycles.
+The `__delay_cycles()` intrinsic pauses program execution for the specified number of CPU cycles.
 
-In this example, the delay is approximately 1 second when the main clock is running at 1 MHz.
+The actual delay duration depends on the CPU clock frequency. Because this example does not configure the clock system, the macro should be treated as a visible delay rather than an exact time delay.
 
-This is a simple software delay. It is useful for beginner examples, but timer peripherals should be used for more accurate timing in larger projects.
+This type of software delay is useful for simple examples, but timer peripherals should be used when accurate or non-blocking timing is required.
 
 ---
 
@@ -151,9 +151,9 @@ These two operations are repeated forever inside the `while (1)` loop.
 After programming the MSP432P401R LaunchPad:
 
 * The onboard red LED turns on.
-* The LED stays on for approximately 1 second.
+* The LED remains on for a short delay.
 * The LED turns off.
-* The LED stays off for approximately 1 second.
+* The LED remains off for the same delay.
 * The pattern repeats forever.
 
 ---
@@ -184,12 +184,12 @@ Check that:
 
 ### LED blinks too fast or too slow
 
-The delay depends on the main clock frequency.
+The delay duration depends on the CPU clock frequency and the value assigned to `LED_BLINK_DELAY_CYCLES`.
 
-This example assumes the main clock is approximately 1 MHz. If the clock configuration changes, the delay time will also change.
+Increase `LED_BLINK_DELAY_CYCLES` for a slower blink rate or decrease it for a faster blink rate. Timer peripherals will be introduced in later examples for more accurate timing.
 
 ---
 
 ## 8. Next Example
 
-Next, continue with a GPIO input example using one of the onboard push buttons.
+Next, continue with a GPIO input example using push buttons.

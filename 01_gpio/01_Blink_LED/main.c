@@ -20,7 +20,7 @@
 
 #include "msp.h"
 
-/* Approximate 1 second delay at 1 MHz MCLK. See README Section 4.5. */
+/* Delay between LED state changes. See README Section 4.5. */
 #define LED_BLINK_DELAY_CYCLES (1000000U)
 
 int main(void)
@@ -40,11 +40,11 @@ int main(void)
 
     while (1)
     {
-        /* Turn on the red LED by setting P1.0. */
+        /* Turn on the onboard red LED. */
         P1->OUT |= BIT0;
         __delay_cycles(LED_BLINK_DELAY_CYCLES);
 
-        /* Turn off the red LED by clearing P1.0. */
+        /* Turn off the onboard red LED. */
         P1->OUT &= ~BIT0;
         __delay_cycles(LED_BLINK_DELAY_CYCLES);
     }

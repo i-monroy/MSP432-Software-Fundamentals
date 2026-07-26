@@ -44,17 +44,19 @@ Direct register-level programming (Bare Metal)
 | ------ | ----------- |
 | `00_Getting_Started` | Code Composer Studio setup, project creation, and basic MSP432P401R notes |
 | `01_GPIO` | Digital input/output examples such as blinking LEDs and reading buttons |
-| `02_SysTick_Timer` | Basic delay and timing examples using the SysTick timer |
-| `03_Timer_A` | Timer_A examples using interrupts and periodic timing |
-| `04_Port_Interrupts` | GPIO interrupt examples using buttons and external signals |
-| `05_UART` | Serial communication examples |
+| `02_Port_Interrupts` | GPIO interrupt examples using buttons and external signals |
+| `03_SysTick_Timer` | Basic delay and timing examples using the SysTick timer |
+| `04_Timer_A` | Timer_A examples using interrupts, periodic timing, capture, and comparison |
+| `05_PWM` | Pulse-width modulation examples for LEDs, servos, and signals |
 | `06_ADC` | Analog-to-digital conversion examples |
-| `07_PWM` | Pulse-width modulation examples for LEDs, servos, and signals |
-| `08_LCD` | LCD examples for displaying text and values |
-| `09_I2C` | I2C communication examples |
-| `10_SPI` | SPI communication examples |
-| `11_Wireless_Communication` | Wireless communication examples using external modules such as the ESP8266 |
-| `12_Cryptography` | Basic embedded cryptography examples such as AES |
+| `07_UART` | Serial communication examples |
+| `08_I2C` | I2C communication examples |
+| `09_SPI` | SPI communication examples |
+| `10_LCD` | LCD examples for displaying text and values |
+| `11_Watchdog_Timer` | Watchdog timer configuration, servicing, and reset examples |
+| `12_Flash_Memory` | Reading, writing, and preserving data in the MSP432P401R flash memory |
+| `13_Wireless_Communication` | Wireless communication examples using external modules such as the ESP8266 |
+| `14_Cryptography` | Basic embedded cryptography examples such as AES |
 | `docs` | Additional notes, references, and repository documentation |
 | `images` | Pinouts, wiring diagrams, and example images |
 
