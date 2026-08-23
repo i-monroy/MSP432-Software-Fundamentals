@@ -1,4 +1,4 @@
-# GPIO Blink LED ⚡
+# GPIO Blink LED 🦖
 
 This example blinks the onboard red LED connected to `P1.0` on the MSP432P401R LaunchPad.
 

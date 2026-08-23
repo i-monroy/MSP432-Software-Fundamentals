@@ -1,4 +1,4 @@
-# GPIO Button Input
+# GPIO Button Input 🦦
 
 This example uses two external push buttons to control two onboard LEDs on the MSP432P401R LaunchPad.
 
@@ -48,7 +48,7 @@ The two buttons demonstrate different input behaviors:
 Connect Button 1 between `P4.1` and ground.
 
 ```text
-P4.1 ─── Push Button ─── GND
+GND ─── Push Button ─── P4.1
 ```
 
 The MSP432P401R's internal pull-up resistor holds `P4.1` high while the button is released.
@@ -321,17 +321,27 @@ Both buttons operate independently and control separate LEDs.
 
 Button 1 uses an active-low pull-up configuration.
 
-The input reads low when pressed and high when released. Verify that the button is connected between `P4.1` and ground.
+When the button is released, the internal pull-up resistor holds `P4.1` high. Pressing the button connects `P4.1` to ground, causing the input to read low.
 
-### Button 2 always reads low
+If the behavior appears reversed, verify that Button 1 is connected between `P4.1` and ground.
 
-Verify that Button 2 is connected between `P4.6` and `3.3 V`.
+### Button 2 does not detect a press
 
-A pull-down input remains low until an external connection drives it high.
+Button 2 uses an active-high pull-down configuration.
 
-### Button 2 always reads high
+When the button is released, the internal pull-down resistor holds `P4.6` low. Pressing the button connects `P4.6` to `3.3 V`, causing the input to read high.
 
-Check for an incorrect connection between `P4.6` and `3.3 V`, or verify that `P4.6` is configured with a pull-down rather than a pull-up resistor.
+If the input remains low when the button is pressed, verify that:
+
+* Button 2 is connected between `P4.6` and `3.3 V`.
+* The internal resistor on `P4.6` is enabled.
+* `P4.6` is configured with an internal pull-down resistor.
+
+### Button 2 remains high after release
+
+When Button 2 is released, `P4.6` should return to logic low because of the internal pull-down resistor.
+
+If the input remains high after releasing the button, check for an incorrect connection between `P4.6` and `3.3 V` and verify that the internal pull-down resistor is configured correctly.
 
 ### The RGB LED toggles more than once
 
@@ -346,8 +356,8 @@ Check that:
 * The project builds and programs successfully.
 * The correct MSP432P401R target is selected.
 * The external buttons share a common ground with the LaunchPad.
-* Button 1 is connected to `P4.1` and ground.
-* Button 2 is connected to `P4.6` and `3.3 V`.
+* Button 1 is connected between `P4.1` and ground.
+* Button 2 is connected between `P4.6` and `3.3 V`.
 * The code uses `P1.0` and `P2.0` for the onboard LEDs.
 
 ---
