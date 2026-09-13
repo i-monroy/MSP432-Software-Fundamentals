@@ -21,7 +21,10 @@
 
 #include "msp.h"
 
-/* Macros */
+/*
+ * Number of processor clock cycles for approximately 0.5 seconds
+ * using the default 3 MHz processor clock. See README Section 4.3.
+ */
 #define SYSTICK_HALF_SECOND_COUNTS (1500000U)
 
 /* Function Prototypes */
@@ -41,7 +44,7 @@ int main(void)
     {
         /*
          * Check whether SysTick has counted down to zero.
-         * COUNTFLAG is set when the timer reaches zero.
+         * See README Section 4.7.
          */
         if ((SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) != 0U)
         {
@@ -67,21 +70,24 @@ void LED_redLEDInit(void)
 
 void SysTick_sysTickTimerInit(void)
 {
-    /* Disable SysTick while configuring the timer. */
+    /* Disable SysTick before configuration. See README Section 4.6. */
     SysTick->CTRL = 0U;
 
     /*
-     * Set the reload value for approximately 0.5 seconds
-     * using the default 3 MHz processor clock.
+     * Set the reload value for approximately 0.5 seconds.
+     * See README Section 4.4.
      */
     SysTick->LOAD = SYSTICK_HALF_SECOND_COUNTS - 1U;
 
-    /* Clear the current SysTick counter value. */
+    /*
+     * Clear the current SysTick counter value.
+     * See README Section 4.5.
+     */
     SysTick->VAL = 0U;
 
     /*
-     * Use the processor clock and start SysTick.
-     * TICKINT is not enabled because this example uses polling.
+     * Use the processor clock and start SysTick without interrupts.
+     * See README Section 4.6.
      */
     SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk |
                      SysTick_CTRL_ENABLE_Msk);
