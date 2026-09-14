@@ -1,528 +1,598 @@
-# Dual Button Interrupt (Pull-Up and Pull-Down) 🐎
+# SysTick Interrupt LED Delay 🦬
 
-This example controls two onboard LEDs using two external push buttons configured as GPIO interrupts.
+This example blinks the onboard red LED using periodic SysTick interrupts.
 
-The first button uses an internal pull-up resistor and controls an LED while the button is held. The second button uses an internal pull-down resistor and toggles an LED each time the button is pressed.
-
-Unlike the previous polling-based GPIO example, button events are detected using Port 4 interrupts.
+Unlike the previous SysTick example, the main loop does not continuously check `COUNTFLAG`. Instead, SysTick generates an exception when the timer reaches zero, causing the processor to automatically execute `SysTick_Handler()`.
 
 ---
 
 ## 1. Overview
 
-This project demonstrates two different GPIO interrupt configurations on the MSP432P401R.
+The SysTick timer is a 24-bit down-counter built into the ARM Cortex-M4 processor.
 
-Button 1 is connected to `P4.1` and uses an internal pull-up resistor. Pressing the button turns the onboard red LED on, while releasing the button turns it off.
+The previous example demonstrated SysTick using polling. The main loop continuously checked `COUNTFLAG` to determine whether the timer had reached zero.
 
-Button 2 is connected to `P4.6` and uses an internal pull-down resistor. Each button press toggles the red channel of the onboard RGB LED.
+This example uses the same SysTick timer differently.
 
-Both buttons generate Port 4 interrupts and are handled by the same `PORT4_IRQHandler()` interrupt service routine.
+SysTick is configured to generate an interrupt approximately every 0.5 seconds using the default 3 MHz processor clock. When the counter reaches zero, the processor automatically executes:
+
+```c
+void SysTick_Handler(void)
+```
+
+The interrupt service routine toggles the onboard red LED.
 
 This example demonstrates:
 
-* GPIO interrupts
-* Pull-up and pull-down button configurations
-* Falling-edge and rising-edge interrupts
-* Interrupt flags
-* Reading the current input state
-* Dynamically changing interrupt edge detection
-* Multiple interrupt sources sharing one interrupt service routine
-* Basic interrupt debouncing
+- Periodic SysTick interrupts
+- The SysTick `TICKINT` control bit
+- The `SysTick_Handler()` interrupt service routine
+- Global interrupt enable
+- Interrupt-driven operation without polling
+- Automatic SysTick reload
+- How SysTick exceptions differ from peripheral interrupts
+- Polling versus interrupt-driven SysTick operation
 
 ---
 
 ## 2. Hardware Used
 
-| Item                  | Description                    |
-| --------------------- | ------------------------------ |
-| Microcontroller Board | MSP432P401R LaunchPad          |
-| LED 1                 | Onboard red LED                |
-| LED 2                 | Red channel of onboard RGB LED |
-| Button 1              | External push button           |
-| Button 2              | External push button           |
-| IDE                   | Code Composer Studio 12.8.1    |
+| Item | Description |
+| --- | --- |
+| Microcontroller Board | MSP432P401R LaunchPad |
+| LED | Onboard red LED |
+| LED Pin | `P1.0` |
+| IDE | Code Composer Studio 12.8.1 |
+
+No external components are required for this example.
 
 ---
 
 ## 3. Pinout / Wiring
 
-### LEDs
+The example uses the onboard red LED connected to `P1.0`.
 
-| Component       | MSP432P401R Pin | Configuration |
-| --------------- | --------------- | ------------- |
-| Onboard Red LED | `P1.0`          | GPIO output   |
-| RGB Red Channel | `P2.0`          | GPIO output   |
+| Component | MSP432P401R Pin | Configuration |
+| --- | --- | --- |
+| Onboard Red LED | `P1.0` | GPIO output |
 
-### Buttons
-
-| Button   | MSP432P401R Pin | Configuration      | Connection                      |
-| -------- | --------------- | ------------------ | ------------------------------- |
-| Button 1 | `P4.1`          | Internal pull-up   | Button between `P4.1` and GND   |
-| Button 2 | `P4.6`          | Internal pull-down | Button between `P4.6` and 3.3 V |
-
-Button 1 is active-low:
-
-| Button State | P4.1 |
-| ------------ | ---- |
-| Released     | HIGH |
-| Pressed      | LOW  |
-
-Button 2 is active-high:
-
-| Button State | P4.6 |
-| ------------ | ---- |
-| Released     | LOW  |
-| Pressed      | HIGH |
-
-Both external buttons must share the LaunchPad's electrical reference through the appropriate GND and 3.3 V connections.
+Because the LED is built into the MSP432P401R LaunchPad, no external wiring is required.
 
 ---
 
 ## 4. Code Walkthrough
 
-### 4.1 Initialize the LEDs
+### 4.1 Initialize the Red LED
 
-The onboard red LED and the red channel of the RGB LED are initialized using:
+The onboard red LED is initialized using:
 
 ```c
-LED_redLEDsInit();
+LED_redLEDInit();
 ```
 
-`P1.0` and `P2.0` are configured for GPIO operation and set as outputs.
+`P1.0` is configured for GPIO operation:
 
-Both LEDs begin turned off.
+```c
+P1->SEL0 &= ~BIT0;
+P1->SEL1 &= ~BIT0;
+```
+
+The pin is then configured as an output:
+
+```c
+P1->DIR |= BIT0;
+```
+
+The LED begins turned off:
 
 ```c
 P1->OUT &= ~BIT0;
-P2->OUT &= ~BIT0;
 ```
 
-The two LEDs are controlled independently by the two external button interrupts.
+The GPIO configuration is the same as the previous examples. The main difference in this project is how SysTick notifies the processor that the timer has expired.
 
 ---
 
-### 4.2 Configure the Pull-Up Button
+### 4.2 Configure the SysTick Interval
 
-Button 1 is connected to `P4.1` and configured as an input:
+This example uses approximately 0.5 seconds as the SysTick interval.
 
-```c
-P4->DIR &= ~BIT1;
-```
-
-The internal resistor is enabled using:
+The program defines:
 
 ```c
-P4->REN |= BIT1;
+#define SYSTICK_HALF_SECOND_COUNTS (1500000U)
 ```
 
-The corresponding bit in the `OUT` register is then set:
+Using the default processor clock of approximately 3 MHz:
 
-```c
-P4->OUT |= BIT1;
+```text
+3 MHz = 3,000,000 clock cycles per second
 ```
-
-When the resistor is enabled for an input pin, setting its `OUT` bit selects an internal pull-up resistor.
 
 Therefore:
 
 ```text
-Released = HIGH
-Pressed  = LOW
+3,000,000 cycles/second × 0.5 seconds
+= 1,500,000 cycles
 ```
 
-The button is active-low.
+The general relationship is:
+
+```text
+Timer Counts = Clock Frequency × Desired Time
+```
+
+For this example:
+
+```text
+Timer Counts = 3,000,000 Hz × 0.5 s
+
+Timer Counts = 1,500,000
+```
+
+The LED therefore changes state approximately every 0.5 seconds.
 
 ---
 
-### 4.3 Configure the Pull-Down Button
+### 4.3 Configure LOAD and VAL
 
-Button 2 is connected to `P4.6` and configured as an input:
-
-```c
-P4->DIR &= ~BIT6;
-```
-
-Its internal resistor is enabled:
+SysTick is first disabled while the timer is configured:
 
 ```c
-P4->REN |= BIT6;
+SysTick->CTRL = 0U;
 ```
 
-The corresponding `OUT` bit is cleared:
+The reload value is then configured:
 
 ```c
-P4->OUT &= ~BIT6;
+SysTick->LOAD = SYSTICK_HALF_SECOND_COUNTS - 1U;
 ```
 
-Clearing the `OUT` bit while the resistor is enabled selects an internal pull-down resistor.
-
-Therefore:
+For this example:
 
 ```text
-Released = LOW
-Pressed  = HIGH
+LOAD = 1,500,000 - 1
+
+LOAD = 1,499,999
 ```
 
-The button is active-high.
+The subtraction is necessary because the countdown includes zero:
+
+```text
+1,499,999
+1,499,998
+    ...
+      2
+      1
+      0
+```
+
+This produces 1,500,000 timer counts.
+
+The current counter is then cleared:
+
+```c
+SysTick->VAL = 0U;
+```
+
+Writing to `VAL` clears the current SysTick counter value and provides a clean starting state.
+
+When SysTick begins operating, the configured `LOAD` value is used and the timer counts downward.
+
+The basic relationship remains:
+
+```text
+LOAD → Where should the countdown reload from?
+
+VAL  → Where is the countdown currently?
+
+CTRL → How should SysTick operate?
+```
 
 ---
 
-### 4.4 Pull-Up vs. Pull-Down Interrupt Edges
+### 4.4 Enable the SysTick Interrupt
 
-The `IES` register selects which signal transition generates an interrupt.
-
-| IES Bit | Interrupt Edge |
-| ------- | -------------- |
-| `0`     | Low-to-high    |
-| `1`     | High-to-low    |
-
-Button 1 uses a pull-up resistor.
-
-Pressing the button causes:
-
-```text
-HIGH → LOW
-```
-
-Therefore, its initial interrupt edge is configured using:
+After `LOAD` and `VAL` are configured, SysTick is enabled using:
 
 ```c
-P4->IES |= BIT1;
+SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk |
+                 SysTick_CTRL_TICKINT_Msk   |
+                 SysTick_CTRL_ENABLE_Msk);
 ```
 
-Button 2 uses a pull-down resistor.
+Three control bits are enabled.
 
-Pressing the button causes:
-
-```text
-LOW → HIGH
-```
-
-Therefore:
+#### CLKSOURCE
 
 ```c
-P4->IES &= ~BIT6;
+SysTick_CTRL_CLKSOURCE_Msk
 ```
 
-The electrical configuration of the button determines which edge represents a button press.
+This selects the processor clock as the SysTick clock source.
+
+#### TICKINT
+
+```c
+SysTick_CTRL_TICKINT_Msk
+```
+
+This enables the SysTick exception.
+
+When SysTick reaches zero while `TICKINT` is enabled, the processor can execute `SysTick_Handler()`.
+
+This is the primary difference from the previous polling example.
+
+The polling example used:
+
+```c
+SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk |
+                 SysTick_CTRL_ENABLE_Msk);
+```
+
+The interrupt example adds:
+
+```c
+SysTick_CTRL_TICKINT_Msk
+```
+
+The difference can be summarized as:
+
+```text
+Polling Example
+
+CLKSOURCE = 1
+TICKINT   = 0
+ENABLE    = 1
+
+SysTick reaches zero
+        ↓
+COUNTFLAG
+        ↓
+main() detects event
+```
+
+Compared with:
+
+```text
+Interrupt Example
+
+CLKSOURCE = 1
+TICKINT   = 1
+ENABLE    = 1
+
+SysTick reaches zero
+        ↓
+SysTick exception
+        ↓
+SysTick_Handler()
+```
+
+#### ENABLE
+
+```c
+SysTick_CTRL_ENABLE_Msk
+```
+
+This starts the SysTick counter.
+
+The complete configuration can therefore be remembered as:
+
+```text
+CLKSOURCE → Use the processor clock
+
+TICKINT   → Generate a SysTick exception when
+            the timer reaches zero
+
+ENABLE    → Start the SysTick counter
+```
 
 ---
 
-### 4.5 Enable Port 4 and Global Interrupts
+### 4.5 Enable Interrupts Globally
 
-After both buttons are configured, Port 4 interrupts are enabled in the Nested Vectored Interrupt Controller:
-
-```c
-NVIC_EnableIRQ(PORT4_IRQn);
-```
-
-The NVIC allows the ARM Cortex-M4F processor to receive interrupt requests generated by Port 4.
-
-Interrupts are then enabled globally:
+After SysTick is configured, interrupts are enabled globally:
 
 ```c
 __enable_irq();
 ```
 
+This allows the processor to respond to enabled interrupts and exceptions.
+
+Unlike the previous polling example, this program depends on interrupt-driven execution. The SysTick exception must therefore be allowed to interrupt normal program execution.
+
 The interrupt path can be viewed as:
 
 ```text
-GPIO signal changes
-        ↓
-Configured edge detected
-        ↓
-P4->IFG flag set
-        ↓
-P4->IE allows pin interrupt
-        ↓
-NVIC accepts Port 4 interrupt
-        ↓
-CPU executes PORT4_IRQHandler()
+SysTick enabled
+      ↓
+Counter reaches zero
+      ↓
+TICKINT enabled
+      ↓
+SysTick exception becomes pending
+      ↓
+Global interrupt state allows execution
+      ↓
+SysTick_Handler()
 ```
 
-The main loop does not need to continuously poll either button.
+---
+
+### 4.6 Main Loop Without Polling
+
+The main loop contains no SysTick polling:
 
 ```c
 while (1)
 {
-    /* Button events are handled by interrupts. */
+    /*
+     * No delay or LED polling is required here.
+     * The LED is controlled by the SysTick interrupt.
+     */
 }
 ```
 
+The previous SysTick example required:
+
+```c
+if ((SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) != 0U)
+```
+
+inside the main loop.
+
+That is no longer necessary.
+
+Instead, the processor can continue executing the main program while SysTick operates independently.
+
+When the timer reaches zero, the processor temporarily leaves its normal execution and runs `SysTick_Handler()`.
+
+In this simple example, the main loop has no other work to perform. In a larger embedded application, the main loop could perform other tasks while SysTick provides periodic timing in the background.
+
 ---
 
-### 4.6 Port 4 Interrupt Service Routine
+### 4.7 SysTick_Handler()
 
-Both buttons are connected to Port 4.
-
-Therefore, they share the same interrupt service routine:
+The SysTick interrupt service routine is:
 
 ```c
-void PORT4_IRQHandler(void)
+void SysTick_Handler(void)
+{
+    P1->OUT ^= BIT0;
+}
 ```
 
-The ISR does not automatically represent one specific Port 4 pin. Multiple interrupt-capable pins on Port 4 can cause the processor to enter the same handler.
+`SysTick_Handler()` is not called manually by the program.
 
-The program must determine which pin generated the interrupt.
+When SysTick reaches zero and its interrupt is enabled, the processor automatically executes this handler.
 
-In this example, both `P4.1` and `P4.6` can generate a Port 4 interrupt.
-
----
-
-### 4.7 Determine the Interrupt Source Using IFG
-
-The `IFG` register contains the interrupt flags for the port.
-
-When the configured edge occurs on an interrupt-enabled pin, its corresponding interrupt flag is set.
-
-The P4.1 flag is checked using:
+The statement:
 
 ```c
-if ((P4->IFG & BIT1) != 0U)
+P1->OUT ^= BIT0;
 ```
 
-The P4.6 flag is checked using:
+toggles the onboard red LED.
 
-```c
-if ((P4->IFG & BIT6) != 0U)
-```
-
-For either button:
+Therefore, every SysTick expiration changes the LED state:
 
 ```text
-Configured edge occurs
+Timer expires → LED OFF → ON
+
+Timer expires → LED ON  → OFF
+
+Timer expires → LED OFF → ON
+
+...
+```
+
+After `SysTick_Handler()` finishes, the processor returns to the code that was executing before the exception occurred.
+
+---
+
+### 4.8 SysTick Interrupt Execution Flow
+
+The complete interrupt-driven process can be visualized as:
+
+```text
+          main()
+            │
+            │
+            │        SysTick counts down
+            │                ↓
+            │             VAL = 0
+            │                ↓
+            │        SysTick exception
+            │                ↓
+            ├──────► SysTick_Handler()
+            │                ↓
+            │          Toggle P1.0
+            │                ↓
+            │        Return from handler
+            ◄────────────────┘
+            │
+            │
+            │        SysTick automatically
+            │        begins another period
+            │
+            ▼
+         Continue
+```
+
+SysTick automatically reloads its configured value and continues counting as long as the timer remains enabled.
+
+The application does not need to manually restart the timer after each interrupt.
+
+---
+
+### 4.9 Polling vs. Interrupt-Driven SysTick
+
+The previous SysTick example and this example use the same hardware timer and approximately the same timing interval.
+
+The main difference is how the processor responds when SysTick reaches zero.
+
+#### Polling
+
+```text
+SysTick reaches zero
         ↓
-Corresponding IFG bit becomes 1
+COUNTFLAG set
         ↓
+main() reads CTRL
+        ↓
+COUNTFLAG detected
+        ↓
+Toggle LED
+```
+
+The processor must repeatedly check whether the timer has expired.
+
+#### Interrupt
+
+```text
+SysTick reaches zero
+        ↓
+SysTick exception
+        ↓
+SysTick_Handler()
+        ↓
+Toggle LED
+```
+
+The processor does not need to continuously check the timer.
+
+This makes interrupt-driven timing useful when the processor needs to perform other work between periodic timer events.
+
+A simple way to remember the difference is:
+
+```text
+Polling:
+
+"Did the timer finish?"
+"Did the timer finish?"
+"Did the timer finish?"
+"Did the timer finish?"
+        ↓
+       Yes
+
+
+Interrupt:
+
+"Tell me when the timer finishes."
+        ↓
+Continue other work
+        ↓
+SysTick_Handler()
+```
+
+---
+
+### 4.10 Why NVIC_EnableIRQ() Is Not Required
+
+The previous Port Interrupt examples used functions such as:
+
+```c
+NVIC_EnableIRQ(PORT4_IRQn);
+```
+
+This was required because Port 4 is a microcontroller peripheral interrupt connected to the Cortex-M interrupt system as an external IRQ.
+
+SysTick is different.
+
+SysTick is part of the ARM Cortex-M4 processor core and generates a core exception rather than a normal external peripheral IRQ.
+
+Therefore, this example does not require:
+
+```c
+NVIC_EnableIRQ(...);
+```
+
+The SysTick exception is enabled through the `TICKINT` bit:
+
+```c
+SysTick_CTRL_TICKINT_Msk
+```
+
+The difference can be visualized as:
+
+```text
+Port Interrupt
+
+GPIO pin
+   ↓
+Port peripheral
+   ↓
 Interrupt request
-        ↓
+   ↓
+NVIC external IRQ
+   ↓
 PORT4_IRQHandler()
 ```
 
-The pull-up or pull-down configuration does not change how the interrupt flag itself is checked.
+Compared with:
 
-`IFG` answers the question:
+```text
+SysTick
 
-> Which pin generated an interrupt event?
+Cortex-M SysTick
+      ↓
+Counter reaches zero
+      ↓
+SysTick exception
+      ↓
+SysTick_Handler()
+```
 
-After the event is handled, the corresponding flag is cleared:
+This is why no `SysTick_IRQn` needs to be enabled using `NVIC_EnableIRQ()` in this example.
+
+---
+
+### 4.11 Why No Interrupt Flag Is Manually Cleared
+
+The Port Interrupt examples also required the program to clear GPIO interrupt flags manually:
 
 ```c
 P4->IFG &= ~BIT1;
 ```
 
-or:
+This was necessary because the GPIO peripheral maintains interrupt flags in its `IFG` register.
+
+SysTick does not use a GPIO-style `IFG` register.
+
+When the SysTick exception is accepted and `SysTick_Handler()` executes, the exception is handled through the Cortex-M exception mechanism. There is no peripheral interrupt flag that must be manually cleared inside the handler.
+
+Therefore, the SysTick ISR can remain:
 
 ```c
-P4->IFG &= ~BIT6;
-```
-
----
-
-### 4.8 Read the Current Button State Using IN
-
-The `IN` register contains the current logic level present on the GPIO pins.
-
-For the pull-up button:
-
-```c
-if ((P4->IN & BIT1) == 0U)
-```
-
-checks whether `P4.1` is currently LOW.
-
-Because the button is active-low:
-
-```text
-P4.1 = LOW → Button pressed
-P4.1 = HIGH → Button released
-```
-
-For the pull-down button:
-
-```c
-if ((P4->IN & BIT6) != 0U)
-```
-
-checks whether `P4.6` is currently HIGH.
-
-Because the button is active-high:
-
-```text
-P4.6 = LOW  → Button released
-P4.6 = HIGH → Button pressed
-```
-
-`IFG` and `IN` therefore provide different information:
-
-```text
-IFG → Which pin generated an interrupt event?
-
-IN  → What is the current logic level of the pin?
-```
-
-This distinction becomes particularly useful when the same interrupt handler needs to respond differently depending on the current state of an input.
-
----
-
-### 4.9 Dynamically Change the Interrupt Edge
-
-Button 1 demonstrates that interrupt edge selection can be changed while the program is running.
-
-Initially:
-
-```c
-P4->IES |= BIT1;
-```
-
-configures `P4.1` for a high-to-low interrupt.
-
-Because the button uses a pull-up resistor, this detects the button press:
-
-```text
-Released
-HIGH
-  ↓
-PRESS
-  ↓
-LOW
-  ↓
-Interrupt
-```
-
-Inside the interrupt handler, the program confirms that the input is LOW:
-
-```c
-if ((P4->IN & BIT1) == 0U)
-```
-
-The red LED is turned on:
-
-```c
-P1->OUT |= BIT0;
-```
-
-The interrupt edge is then changed:
-
-```c
-P4->IES &= ~BIT1;
-```
-
-The program is now waiting for a low-to-high transition.
-
-While the button remains held, the input remains LOW:
-
-```text
-LOW → LOW → LOW → LOW
-```
-
-No edge occurs, so another interrupt is not generated.
-
-When the button is released:
-
-```text
-LOW → HIGH
-```
-
-the rising edge generates another interrupt.
-
-The ISR now reads a HIGH input, turns the LED off, and restores falling-edge detection:
-
-```c
-P1->OUT &= ~BIT0;
-P4->IES |= BIT1;
-```
-
-The complete cycle is:
-
-```text
-Button Released
-P4.1 = HIGH
-      │
-      │ IES = 1
-      │ Wait for HIGH → LOW
-      ▼
-Button Pressed
-P4.1 = LOW
-      │
-      ├── Interrupt
-      ├── LED ON
-      └── IES = 0
-              │
-              │ Wait for LOW → HIGH
-              ▼
-       Button Released
-       P4.1 = HIGH
-              │
-              ├── Interrupt
-              ├── LED OFF
-              └── IES = 1
-                      │
-                      ▼
-              Wait for next press
-```
-
-This allows one interrupt-enabled button to detect both its press and release without continuously polling the input.
-
-It is important that the edge selection remains synchronized with the expected button state. An incorrect `IES` configuration could cause the program to wait for an edge that does not represent the intended event.
-
----
-
-### 4.10 Handle Multiple Interrupt Sources
-
-The Port 4 ISR uses two independent `if` statements:
-
-```c
-if ((P4->IFG & BIT1) != 0U)
+void SysTick_Handler(void)
 {
-    /* Handle P4.1 */
-}
-
-if ((P4->IFG & BIT6) != 0U)
-{
-    /* Handle P4.6 */
+    P1->OUT ^= BIT0;
 }
 ```
 
-This is intentional.
+There is no additional statement such as:
 
-Both pins share the same Port 4 interrupt handler, and more than one interrupt flag could be pending when the ISR executes.
-
-Using two independent conditions allows both flags to be checked and serviced.
-
-If the second condition were written as:
-
-```c
-else if ((P4->IFG & BIT6) != 0U)
+```text
+Clear SysTick IFG
 ```
 
-then handling `P4.1` would prevent `P4.6` from being checked during that pass through the handler.
+because no such peripheral `IFG` operation is required.
 
-Each interrupt source is therefore checked independently.
+This is an important difference between the two interrupt sources:
 
----
+```text
+Port Interrupt                     SysTick
 
-### 4.11 Button Debouncing Inside the ISR
-
-Mechanical push buttons can rapidly transition between high and low when pressed or released.
-
-This behavior is known as button bounce.
-
-A short delay is used after detecting an interrupt:
-
-```c
-__delay_cycles(BUTTON_DEBOUNCE_DELAY_CYCLES);
+External peripheral event          Core timer event
+        ↓                                  ↓
+Port IFG set                       SysTick exception
+        ↓                                  ↓
+PORTx_IRQHandler()                 SysTick_Handler()
+        ↓                                  ↓
+Clear IFG manually                 No peripheral IFG to clear
 ```
 
-The input state is then checked before the button action is performed.
-
-This provides a simple software debounce method suitable for this introductory example.
-
-However, the processor remains inside the interrupt service routine during `__delay_cycles()`.
-
-In larger or timing-sensitive embedded systems, interrupt handlers should generally remain short so other processing and interrupts are not unnecessarily delayed.
-
-More advanced implementations can use timers or state-based debounce techniques instead of waiting inside the ISR.
+SysTick does have `COUNTFLAG` in its `CTRL` register, but `COUNTFLAG` is a status indication and is not a GPIO-style interrupt flag that must be cleared by `SysTick_Handler()`.
 
 ---
 
@@ -530,117 +600,134 @@ More advanced implementations can use timers or state-based debounce techniques 
 
 After programming the MSP432P401R LaunchPad:
 
-### Button 1 — P4.1 Pull-Up
-
 1. The onboard red LED begins turned off.
-2. Press and hold Button 1.
-3. The onboard red LED turns on.
-4. Continue holding the button.
-5. The LED remains on.
-6. Release the button.
-7. The LED turns off.
+2. SysTick begins counting downward.
+3. After approximately 0.5 seconds, SysTick reaches zero.
+4. A SysTick exception is generated.
+5. The processor automatically executes `SysTick_Handler()`.
+6. The onboard red LED toggles on.
+7. SysTick begins another timing period.
+8. After approximately another 0.5 seconds, the LED toggles off.
+9. The process repeats continuously.
 
-### Button 2 — P4.6 Pull-Down
+The approximate LED behavior is:
 
-1. The red channel of the onboard RGB LED begins turned off.
-2. Press Button 2.
-3. The RGB LED's red channel toggles on.
-4. Release the button.
-5. Press Button 2 again.
-6. The RGB LED's red channel toggles off.
+```text
+0.0 s    LED OFF
+0.5 s    LED ON
+1.0 s    LED OFF
+1.5 s    LED ON
+2.0 s    LED OFF
+...
+```
 
-Both buttons operate using Port 4 interrupts rather than continuous polling inside the main loop.
+The LED changes state approximately every 0.5 seconds and completes one full ON/OFF cycle approximately every second.
 
 ---
 
 ## 6. Register Summary
 
-| Register / Function    | Purpose                                        |
-| ---------------------- | ---------------------------------------------- |
-| `WDT_A->CTL`           | Controls the watchdog timer                    |
-| `P1->SEL0`, `P1->SEL1` | Select GPIO operation for P1.0                 |
-| `P2->SEL0`, `P2->SEL1` | Select GPIO operation for P2.0                 |
-| `P4->SEL0`, `P4->SEL1` | Select GPIO operation for the external buttons |
-| `P1->DIR`, `P2->DIR`   | Configure the onboard LEDs as outputs          |
-| `P4->DIR`              | Configure the external buttons as inputs       |
-| `P4->REN`              | Enable the internal button resistors           |
-| `P4->OUT`              | Select pull-up or pull-down operation          |
-| `P4->IN`               | Read the current button input states           |
-| `P4->IES`              | Select the interrupt edge                      |
-| `P4->IFG`              | Store Port 4 interrupt flags                   |
-| `P4->IE`               | Enable individual Port 4 pin interrupts        |
-| `NVIC_EnableIRQ()`     | Enable Port 4 interrupts in the NVIC           |
-| `__enable_irq()`       | Enable interrupts globally                     |
-| `PORT4_IRQHandler()`   | Handle Port 4 interrupt requests               |
+| Register / Function | Purpose |
+| --- | --- |
+| `WDT_A->CTL` | Controls the watchdog timer |
+| `P1->SEL0`, `P1->SEL1` | Select GPIO operation for P1.0 |
+| `P1->DIR` | Configures P1.0 as an output |
+| `P1->OUT` | Controls the onboard red LED |
+| `SysTick->LOAD` | Stores the SysTick reload value |
+| `SysTick->VAL` | Contains the current SysTick counter value |
+| `SysTick->CTRL` | Controls and reports SysTick operation |
+| `SysTick_CTRL_CLKSOURCE_Msk` | Selects the processor clock |
+| `SysTick_CTRL_TICKINT_Msk` | Enables the SysTick exception |
+| `SysTick_CTRL_ENABLE_Msk` | Enables the SysTick counter |
+| `__enable_irq()` | Enables interrupts globally |
+| `SysTick_Handler()` | Handles SysTick exceptions |
 
 ---
 
 ## 7. Common Problems
 
-### Button 1 behavior is reversed
+### The LED does not blink
 
-Button 1 uses an active-low pull-up configuration.
-
-When released, `P4.1` should read HIGH. Pressing the button should connect `P4.1` to ground and produce a LOW input.
-
-Verify that Button 1 is connected between `P4.1` and GND.
-
-### Button 2 does not detect a press
-
-Button 2 uses an active-high pull-down configuration.
-
-When released, `P4.6` should read LOW. Pressing the button should connect `P4.6` to `3.3 V` and produce a HIGH input.
-
-Verify that Button 2 is connected between `P4.6` and `3.3 V`.
-
-### Button 1 turns the LED on but never turns it off
-
-Verify that the interrupt edge is changed after detecting the button press:
+Verify that all three required SysTick control bits are enabled:
 
 ```c
-P4->IES &= ~BIT1;
+SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk |
+                 SysTick_CTRL_TICKINT_Msk   |
+                 SysTick_CTRL_ENABLE_Msk);
 ```
 
-This configures the next interrupt for the low-to-high transition generated when the button is released.
-
-After the release is detected, falling-edge detection should be restored:
+Also verify that global interrupts are enabled:
 
 ```c
-P4->IES |= BIT1;
+__enable_irq();
 ```
 
-### The interrupt handler never executes
+and that `P1.0` is configured as a GPIO output.
+
+### The LED blinks at the wrong speed
+
+The timer interval depends on the clock frequency driving SysTick.
+
+This example assumes the default processor clock of approximately 3 MHz and uses:
+
+```c
+#define SYSTICK_HALF_SECOND_COUNTS (1500000U)
+```
+
+If the processor clock is changed, the SysTick reload calculation must also be changed.
+
+The general relationship is:
+
+```text
+Timer Counts = Clock Frequency × Desired Time
+```
+
+### SysTick_Handler() never executes
 
 Verify that:
 
-* The corresponding bit in `P4->IE` is enabled.
-* Port 4 is enabled using `NVIC_EnableIRQ(PORT4_IRQn)`.
-* Global interrupts are enabled using `__enable_irq()`.
-* The interrupt handler is named `PORT4_IRQHandler()`.
-
-### The LEDs toggle or change unexpectedly
-
-Mechanical button bounce may generate additional transitions.
-
-Verify that the debounce delay and input-state checks are present.
-
-### One button works but the other does not
-
-Check the corresponding `P4->IFG` flag and verify that each button is configured for the correct interrupt edge.
-
-Remember:
-
-```text
-Pull-up press   → HIGH → LOW → IES = 1
-Pull-down press → LOW → HIGH → IES = 0
+```c
+SysTick_CTRL_TICKINT_Msk
 ```
 
-Also verify that the two external buttons are connected to the correct supply or ground connection.
+is included in the SysTick `CTRL` configuration.
+
+Also verify that global interrupts are enabled using:
+
+```c
+__enable_irq();
+```
+
+and that the handler is named exactly:
+
+```c
+void SysTick_Handler(void)
+```
+
+### Where is NVIC_EnableIRQ()?
+
+SysTick is a Cortex-M core exception rather than a normal external peripheral IRQ.
+
+It therefore does not require:
+
+```c
+NVIC_EnableIRQ(...);
+```
+
+See Section 4.10 for more information.
+
+### Where is the interrupt flag cleared?
+
+SysTick does not require a GPIO-style interrupt flag to be manually cleared inside `SysTick_Handler()`.
+
+See Section 4.11 for more information.
 
 ---
 
 ## 8. Next Example
 
-This completes the introductory Port Interrupt examples.
+The next example applies SysTick timing to a larger application.
 
-The previous example introduced a single GPIO interrupt, while this example demonstrated multiple interrupt sources, pull-up and pull-down configurations, shared interrupt handling, and dynamic interrupt edge selection.
+Instead of controlling only one blinking LED, SysTick will be used to control the timing of a binary counter.
+
+This demonstrates how the same timer concepts can be reused as part of a more complete embedded application.

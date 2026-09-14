@@ -22,7 +22,7 @@
 
 /*
  * Number of processor clock cycles for approximately 0.5 seconds
- * when using the default 3 MHz processor clock.
+ * when using the default 3 MHz processor clock. See README Section 4.2.
  */
 #define SYSTICK_HALF_SECOND_COUNTS (1500000U)
 
@@ -42,14 +42,14 @@ int main(void)
     /* Configure SysTick to generate a periodic interrupt. */
     SysTick_sysTickTimerInit();
 
-    /* Enable interrupts globally. */
+    /* Enable interrupts globally. See README Section 4.5. */
     __enable_irq();
 
     while (1)
     {
         /*
          * No delay or LED polling is required here.
-         * The LED is controlled by the SysTick interrupt.
+         * The LED is controlled by the SysTick interrupt. See README Section 4.6.
          */
     }
 }
@@ -71,28 +71,28 @@ void LED_redLEDInit(void)
 /* Configure SysTick for an approximately 0.5-second periodic interrupt. */
 void SysTick_sysTickTimerInit(void)
 {
-    /* Disable SysTick while configuring the timer. */
+    /* Disable SysTick while configuring the timer. See README Section 4.3. */
     SysTick->CTRL = 0U;
 
     /*
      * Set the reload value for approximately 0.5 seconds
-     * using the default 3 MHz processor clock.
+     * using the default 3 MHz processor clock. See README Section 4.3.
      */
     SysTick->LOAD = SYSTICK_HALF_SECOND_COUNTS - 1U;
 
-    /* Clear the current SysTick counter value. */
+    /* Clear the current SysTick counter value. See README Section 4.3. */
     SysTick->VAL = 0U;
 
     /*
      * Use the processor clock, enable the SysTick interrupt,
-     * and start the timer.
+     * and start the timer. See README Section 4.4.
      */
     SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk |
                      SysTick_CTRL_TICKINT_Msk   |
                      SysTick_CTRL_ENABLE_Msk);
 }
 
-/* SysTick interrupt service routine. */
+/* SysTick interrupt service routine. See README Section 4.7. */
 void SysTick_Handler(void)
 {
     /* Toggle the onboard red LED each time SysTick expires. */
