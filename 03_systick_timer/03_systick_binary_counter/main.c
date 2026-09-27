@@ -7,8 +7,8 @@
  *
  * Description:
  *     Displays a 4-bit binary counter using four external LEDs.
- *     The counter can operate automatically using SysTick or
- *     manually using onboard push buttons.
+ *     Supports automatic counting with SysTick and manual counting
+ *     using push-button interrupts.
  *
  * Hardware:
  *     MSP432P401R LaunchPad
@@ -32,15 +32,17 @@
 
 #include "msp.h"
 
-/* Approximately 0.5 seconds using the default 3 MHz processor clock. */
+/*
+ * Number of processor clock cycles for approximately 0.5 seconds
+ * using the default 3 MHz processor clock. See README Section 4.5.
+ */
 #define SYSTICK_HALF_SECOND_COUNTS       (1500000U)
 
-/* Timer flags. */
-#define UPDATE_LEDS                      (0x01U)
-#define MANUAL_COUNTER_BUTTONS_ENABLE    (0x02U)
-#define CHANGE_STATE_BUTTON_ENABLE       (0x04U)
+/* Timer flags used to control button input. See README Section 4.6. */
+#define MANUAL_COUNTER_BUTTONS_ENABLE    (0x01U)
+#define CHANGE_STATE_BUTTON_ENABLE       (0x02U)
 
-/* Counting modes. */
+/* Counting modes. See README Section 4.2. */
 typedef enum
 {
     AUTOMATIC,
@@ -53,17 +55,14 @@ void LED_binaryLEDsInit(void);
 void Button_buttonsInit(void);
 void SysTick_sysTickTimerInit(void);
 
-/* Begin in automatic mode. */
+/* Begin in automatic counting mode. */
 volatile counting_state_t counting_state = AUTOMATIC;
 
-/* Start the binary counter at 0. */
+/* Start the 4-bit binary counter at zero. */
 volatile int8_t binary_counter = 0;
 
-/* Shared timer/event flags. */
-volatile uint8_t timer_flags =
-        (UPDATE_LEDS |
-         MANUAL_COUNTER_BUTTONS_ENABLE |
-         CHANGE_STATE_BUTTON_ENABLE);
+/* Timer-controlled flags used for button input lockout. */
+volatile uint8_t timer_flags = 0U;
 
 /* Main */
 int main(void)
@@ -71,12 +70,16 @@ int main(void)
     /* Stop the watchdog timer to prevent periodic resets. */
     WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;
 
+    /* Initialize LEDs, buttons, and the SysTick timer. */
     LED_onBoardLEDsInit();
     LED_binaryLEDsInit();
     Button_buttonsInit();
     SysTick_sysTickTimerInit();
 
-    /* Automatic mode indicator starts ON. */
+    /*
+     * Turn on the green LED to indicate automatic counting mode.
+     * See README Section 4.2.
+     */
     P2->OUT |= BIT1;
 
     /* Enable Port 1 and Port 4 interrupts in the NVIC. */
@@ -89,30 +92,9 @@ int main(void)
     while (1)
     {
         /*
-         * Keep the counter within the 4-bit range of 0 through 15.
+         * No polling is required in the main loop.
+         * Counter operation is controlled by interrupts. See README Section 4.3.
          */
-        if (binary_counter < 0)
-        {
-            binary_counter = 15;
-        }
-        else if (binary_counter >= 16)
-        {
-            binary_counter = 0;
-        }
-
-        /*
-         * Update the four binary LEDs when requested.
-         */
-        if ((timer_flags & UPDATE_LEDS) != 0U)
-        {
-            timer_flags &= ~UPDATE_LEDS;
-
-            /* Clear the previous 4-bit value. */
-            P4->OUT &= ~(BIT0 | BIT1 | BIT2 | BIT3);
-
-            /* Display the current counter value on P4.0 through P4.3. */
-            P4->OUT |= ((uint8_t)binary_counter & 0x0FU);
-        }
     }
 }
 
@@ -125,11 +107,11 @@ void LED_onBoardLEDsInit(void)
     P2->SEL0 &= ~BIT1;
     P2->SEL1 &= ~BIT1;
 
-    /* Set onboard LED pins as outputs. */
+    /* Configure both onboard LED pins as outputs. */
     P1->DIR |= BIT0;
     P2->DIR |= BIT1;
 
-    /* Start both onboard LEDs off. */
+    /* Start both onboard LEDs turned off. */
     P1->OUT &= ~BIT0;
     P2->OUT &= ~BIT1;
 }
@@ -140,10 +122,10 @@ void LED_binaryLEDsInit(void)
     P4->SEL0 &= ~(BIT0 | BIT1 | BIT2 | BIT3);
     P4->SEL1 &= ~(BIT0 | BIT1 | BIT2 | BIT3);
 
-    /* Set external LEDs as outputs. */
+    /* Configure the four external LED pins as outputs. */
     P4->DIR |= (BIT0 | BIT1 | BIT2 | BIT3);
 
-    /* Start all external LEDs low. */
+    /* Start the 4-bit binary display at zero. */
     P4->OUT &= ~(BIT0 | BIT1 | BIT2 | BIT3);
 }
 
@@ -155,29 +137,30 @@ void Button_buttonsInit(void)
     P4->SEL0 &= ~BIT4;
     P4->SEL1 &= ~BIT4;
 
-    /* Configure buttons as inputs. */
+    /* Configure all button pins as inputs. */
     P1->DIR &= ~(BIT1 | BIT4);
     P4->DIR &= ~BIT4;
 
-    /* Enable internal resistors. */
+    /* Enable internal resistors for all button inputs. */
     P1->REN |= (BIT1 | BIT4);
     P4->REN |= BIT4;
 
-    /* Configure all buttons with pull-up resistors. */
+    /* Configure all buttons as active-low inputs using pull-up resistors. */
     P1->OUT |= (BIT1 | BIT4);
     P4->OUT |= BIT4;
 
     /*
-     * Active-low pull-up buttons generate a falling edge when pressed.
+     * Detect the falling edge generated when an active-low button is pressed.
+     * See README Section 4.4.
      */
     P1->IES |= (BIT1 | BIT4);
     P4->IES |= BIT4;
 
-    /* Clear stale interrupt flags before enabling interrupts. */
+    /* Clear stale interrupt flags before enabling button interrupts. */
     P1->IFG &= ~(BIT1 | BIT4);
     P4->IFG &= ~BIT4;
 
-    /* Enable button interrupts. */
+    /* Enable interrupts for all three buttons. */
     P1->IE |= (BIT1 | BIT4);
     P4->IE |= BIT4;
 }
@@ -189,7 +172,7 @@ void SysTick_sysTickTimerInit(void)
 
     /*
      * Set the reload value for approximately 0.5 seconds
-     * using the default 3 MHz processor clock.
+     * using the default 3 MHz processor clock. See README Section 4.5.
      */
     SysTick->LOAD = SYSTICK_HALF_SECOND_COUNTS - 1U;
 
@@ -198,7 +181,7 @@ void SysTick_sysTickTimerInit(void)
 
     /*
      * Use the processor clock, enable the SysTick interrupt,
-     * and start the timer.
+     * and start the timer. See README Section 4.5.
      */
     SysTick->CTRL = (SysTick_CTRL_CLKSOURCE_Msk |
                      SysTick_CTRL_TICKINT_Msk   |
@@ -207,79 +190,111 @@ void SysTick_sysTickTimerInit(void)
 
 void PORT1_IRQHandler(void)
 {
-    /* Increment button P1.1. */
+    /* Check whether the increment button P1.1 generated the interrupt. */
     if ((P1->IFG & BIT1) != 0U)
     {
+        /*
+         * Accept the button press only in manual mode and when enabled
+         * by SysTick. See README Section 4.7.
+         */
         if ((counting_state == MANUAL) &&
             ((timer_flags & MANUAL_COUNTER_BUTTONS_ENABLE) != 0U))
         {
             timer_flags &= ~MANUAL_COUNTER_BUTTONS_ENABLE;
             binary_counter++;
-            timer_flags |= UPDATE_LEDS;
         }
 
+        /* Clear the P1.1 interrupt flag before leaving the ISR. */
         P1->IFG &= ~BIT1;
     }
 
-    /* Decrement button P1.4. */
+    /* Check whether the decrement button P1.4 generated the interrupt. */
     if ((P1->IFG & BIT4) != 0U)
     {
+        /*
+         * Accept the button press only in manual mode and when enabled
+         * by SysTick. See README Section 4.7.
+         */
         if ((counting_state == MANUAL) &&
             ((timer_flags & MANUAL_COUNTER_BUTTONS_ENABLE) != 0U))
         {
             timer_flags &= ~MANUAL_COUNTER_BUTTONS_ENABLE;
             binary_counter--;
-            timer_flags |= UPDATE_LEDS;
         }
 
+        /* Clear the P1.4 interrupt flag before leaving the ISR. */
         P1->IFG &= ~BIT4;
     }
 }
 
 void PORT4_IRQHandler(void)
 {
+    /* Check whether the mode button P4.4 generated the interrupt. */
     if ((P4->IFG & BIT4) != 0U)
     {
+        /*
+         * Change modes only when the button has been enabled by SysTick.
+         * See README Section 4.8.
+         */
         if ((timer_flags & CHANGE_STATE_BUTTON_ENABLE) != 0U)
         {
             timer_flags &= ~CHANGE_STATE_BUTTON_ENABLE;
 
             if (counting_state == AUTOMATIC)
             {
+                /* Switch to manual mode and turn on the red indicator LED. */
                 counting_state = MANUAL;
 
-                /* Red LED indicates manual mode. */
                 P1->OUT |= BIT0;
                 P2->OUT &= ~BIT1;
             }
             else
             {
+                /* Switch to automatic mode and turn on the green indicator LED. */
                 counting_state = AUTOMATIC;
 
-                /* Green LED indicates automatic mode. */
                 P1->OUT &= ~BIT0;
                 P2->OUT |= BIT1;
             }
         }
 
-        /* Clear the P4.4 interrupt flag. */
+        /* Clear the P4.4 interrupt flag before leaving the ISR. */
         P4->IFG &= ~BIT4;
     }
 }
 
 void SysTick_Handler(void)
 {
+    /*
+     * Increment the counter automatically or enable manual button input
+     * depending on the current counting mode. See README Section 4.9.
+     */
     if (counting_state == AUTOMATIC)
     {
         binary_counter++;
-        timer_flags |= UPDATE_LEDS;
     }
     else
     {
-        /* Allow another manual counter button press. */
         timer_flags |= MANUAL_COUNTER_BUTTONS_ENABLE;
     }
 
-    /* Allow the mode button to be pressed again. */
+    /* Re-enable the counting mode button. See README Section 4.9. */
     timer_flags |= CHANGE_STATE_BUTTON_ENABLE;
+
+    /* Keep the 4-bit counter within the range of 0 through 15. */
+    if (binary_counter < 0)
+    {
+        binary_counter = 15;
+    }
+    else if (binary_counter > 15)
+    {
+        binary_counter = 0;
+    }
+
+    /*
+     * Clear the previous binary value and display the current counter.
+     * See README Section 4.10.
+     */
+    P4->OUT &= ~(BIT0 | BIT1 | BIT2 | BIT3);
+    P4->OUT |= ((uint8_t)binary_counter & 0x0FU);
 }
