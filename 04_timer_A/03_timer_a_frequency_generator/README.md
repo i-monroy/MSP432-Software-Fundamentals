@@ -26,7 +26,7 @@ With the default SMCLK of approximately 3 MHz, the resulting signal is approxima
 
 The waveform below was measured directly from **P2.4** using an oscilloscope.
 
-![Timer_A 1 kHz Square Wave Output](../../images/timer_a_frequency_generator_output.jpeg)
+![Timer_A 1 kHz Square Wave Output](../../images/timer_a_frequency_generator_output.jpg)
 
 The rising edges occur approximately 1 ms apart, confirming an output frequency of approximately 1 kHz. The signal remains HIGH and LOW for approximately equal amounts of time, producing approximately a 50% duty cycle.
 
